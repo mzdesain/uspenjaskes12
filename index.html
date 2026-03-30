@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ujian Sekolah PJOK - SMAS Tahfidz Al-Quran</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        .minimal-border { border: 1px solid #f1f5f9; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .animate-save { animation: blink 1s ease-in-out; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    </style>
+</head>
+<body class="bg-white min-h-screen text-slate-800">
+
+    <div id="app">
+        <!-- Loader Awal -->
+        <div id="loader" class="flex items-center justify-center min-h-screen text-center flex-col p-6">
+            <div id="spinner" class="w-6 h-6 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+            <p class="text-slate-400 text-[10px] tracking-[0.2em] uppercase font-bold">Menginisialisasi...</p>
+        </div>
+    </div>
+
+    <!-- Modal Warning Minimalis -->
+    <div id="modal-warning" class="fixed inset-0 bg-slate-900/10 backdrop-blur-sm hidden flex items-center justify-center p-4 z-[100]">
+        <div class="bg-white rounded-xl max-w-sm w-full p-6 border border-slate-200 text-center shadow-sm transform transition-all">
+            <h3 id="warning-title" class="text-xs font-bold text-slate-900 mb-2 uppercase tracking-widest">Informasi</h3>
+            <p id="warning-message" class="text-slate-500 mb-6 text-[11px] leading-relaxed"></p>
+            <button onclick="window.closeWarning()" class="w-full bg-slate-900 text-white py-2.5 rounded-lg font-bold hover:bg-black transition-all text-[10px] tracking-widest uppercase">Tutup</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, updateDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- CONFIG FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCdZliEF6yVmdQRNHhSRa4Z9YR1fn-CCYQ",
+            authDomain: "chatting-22bb9.firebaseapp.com",
+            projectId: "chatting-22bb9",
+            storageBucket: "chatting-22bb9.firebasestorage.app",
+            messagingSenderId: "540910795541",
+            appId: "1:540910795541:web:785aff5846eab68636c71c"
+        };
+        const appId = 'ujian-informatika-001';
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- DATA SOAL PJOK (40 PG + 5 ESSAY) ---
+        const questionsA = [
+            // SEPAK BOLA
+            { q: "Durasi waktu normal dalam pertandingan sepak bola adalah...", opts: ["2 x 45 Menit", "2 x 40 Menit", "2 x 35 Menit", "2 x 30 Menit"], key: "2 x 45 Menit" },
+            { q: "Induk organisasi sepak bola internasional adalah...", opts: ["FIBA", "FIFA", "IVBF", "PSSI"], key: "FIFA" },
+            { q: "Pelanggaran handsball terjadi jika bola mengenai...", opts: ["Kepala", "Dada", "Tangan", "Kaki"], key: "Tangan" },
+            { q: "Jumlah pemain dalam satu tim sepak bola di lapangan adalah...", opts: ["5 Orang", "6 Orang", "11 Orang", "12 Orang"], key: "11 Orang" },
+            { q: "Tendangan yang dilakukan dari sudut lapangan disebut...", opts: ["Free kick", "Penalty kick", "Corner kick", "Goal kick"], key: "Corner kick" },
+            { q: "Hukuman tendangan pinalti diberikan jika terjadi pelanggaran di...", opts: ["Tengah lapangan", "Luar garis samping", "Dalam kotak terlarang", "Belakang gawang"], key: "Dalam kotak terlarang" },
+            { q: "Kartu yang diberikan wasit sebagai tanda pemain harus keluar lapangan adalah...", opts: ["Kartu Hijau", "Kartu Kuning", "Kartu Biru", "Kartu Merah"], key: "Kartu Merah" },
+            // FUTSAL
+            { q: "Jumlah pemain dalam satu tim futsal adalah...", opts: ["5 Orang", "6 Orang", "7 Orang", "11 Orang"], key: "5 Orang" },
+            { q: "Ukuran bola futsal lebih kecil dan daya pantulnya lebih rendah dibanding bola sepak bola biasa.", opts: ["Benar", "Salah", "Sama Saja"], key: "Benar" },
+            { q: "Durasi waktu bersih dalam pertandingan futsal resmi adalah...", opts: ["2 x 10 Menit", "2 x 15 Menit", "2 x 20 Menit", "2 x 45 Menit"], key: "2 x 20 Menit" },
+            // BOLA VOLI
+            { q: "Induk organisasi bola voli di Indonesia adalah...", opts: ["PBVSI", "PSSI", "PERBASI", "PBSI"], key: "PBVSI" },
+            { q: "Teknik memukul bola untuk memulai pertandingan dalam bola voli disebut...", opts: ["Smash", "Service", "Passing", "Blocking"], key: "Service" },
+            { q: "Pukulan keras dan menukik ke lapangan lawan dalam voli disebut...", opts: ["Dig", "Set up", "Smash", "Lob"], key: "Smash" },
+            { q: "Jumlah poin yang harus dicapai untuk memenangkan satu set dalam bola voli (rally point) adalah...", opts: ["15 Poin", "21 Poin", "25 Poin", "30 Poin"], key: "25 Poin" },
+            { q: "Posisi pemain voli yang bertugas sebagai pengatur serangan disebut...", opts: ["Libero", "Tosser/Setter", "Spiker", "Server"], key: "Tosser/Setter" },
+            { q: "Libero adalah pemain voli yang khusus bertugas untuk bertahan dan tidak boleh melakukan smash.", opts: ["Benar", "Salah", "Kurang Tepat"], key: "Benar" },
+            // BADMINTON
+            { q: "Induk organisasi bulu tangkis dunia adalah...", opts: ["FIFA", "BWF", "FIBA", "ITF"], key: "BWF" },
+            { q: "Poin maksimal dalam satu set pertandingan bulu tangkis normal adalah...", opts: ["11 Poin", "15 Poin", "21 Poin", "25 Poin"], key: "21 Poin" },
+            { q: "Pukulan yang dilakukan dengan shuttlecock jatuh tipis di dekat net lawan disebut...", opts: ["Drive", "Drop shot", "Netting", "Smash"], key: "Netting" },
+            { q: "Pukulan lob dalam bulu tangkis bertujuan untuk menerbangkan shuttlecock ke arah...", opts: ["Belakang lapangan lawan", "Dekat net", "Samping kanan", "Bawah kaki lawan"], key: "Belakang lapangan lawan" },
+            { q: "Nama alat pemukul dalam olahraga bulu tangkis adalah...", opts: ["Bet", "Stick", "Raket", "Glove"], key: "Raket" },
+            // SEPAK TAKRAW
+            { q: "Sepak Takraw dimainkan oleh tim yang masing-masing berjumlah...", opts: ["2 Orang", "3 Orang", "5 Orang", "6 Orang"], key: "3 Orang" },
+            { q: "Pemain sepak takraw yang bertugas melakukan servis disebut...", opts: ["Tekong", "Apit Kanan", "Apit Kiri", "Striker"], key: "Tekong" },
+            { q: "Bola yang digunakan dalam sepak takraw terbuat dari...", opts: ["Karet", "Plastik", "Rotan/Sintetis", "Kulit"], key: "Rotan/Sintetis" },
+            { q: "Dalam sepak takraw, pemain dilarang menyentuh bola menggunakan...", opts: ["Kaki", "Kepala", "Dada", "Tangan"], key: "Tangan" },
+            // KESEHATAN
+            { q: "NAPZA adalah singkatan dari Narkotika, Psikotropika, dan...", opts: ["Zat Adiktif", "Zat Alami", "Zat Beracun", "Zat Kimia"], key: "Zat Adiktif" },
+            { q: "Jenis makanan yang mengandung sumber energi utama bagi tubuh adalah...", opts: ["Protein", "Vitamin", "Karbohidrat", "Mineral"], key: "Karbohidrat" },
+            { q: "Latihan fisik yang dilakukan secara rutin dapat meningkatkan...", opts: ["Kadar lemak", "Daya tahan jantung", "Rasa malas", "Tekanan darah tinggi"], key: "Daya tahan jantung" },
+            { q: "PHBS singkatan dari Perilaku Hidup Bersih dan...", opts: ["Segar", "Sehat", "Santun", "Senang"], key: "Sehat" },
+            { q: "HIV adalah virus yang menyerang sistem...", opts: ["Pencernaan", "Pernapasan", "Kekebalan tubuh", "Saraf"], key: "Kekebalan tubuh" },
+            { q: "Istirahat yang paling baik bagi manusia adalah...", opts: ["Bermain game", "Mendengarkan musik", "Tidur", "Menonton TV"], key: "Tidur" },
+            { q: "Kekurangan vitamin C dapat menyebabkan penyakit...", opts: ["Rabun ayam", "Sariawan", "Busung lapar", "Rakhitis"], key: "Sariawan" },
+            { q: "Berhenti mengonsumsi narkoba adalah jalan terbaik untuk masa depan.", opts: ["Benar", "Salah", "Mungkin"], key: "Benar" },
+            { q: "Olahraga lari selama 30 menit termasuk aktivitas fisik intensitas sedang.", opts: ["Benar", "Salah", "Tergantung"], key: "Benar" },
+            { q: "Zat besi sangat dibutuhkan tubuh untuk pembentukan...", opts: ["Tulang", "Sel darah merah", "Otot", "Gigi"], key: "Sel darah merah" },
+            { q: "Penyakit menular seksual dapat dicegah dengan menghindari perilaku seks bebas.", opts: ["Benar", "Salah", "Kurang Tepat"], key: "Benar" },
+            { q: "Suhu tubuh normal manusia berkisar antara...", opts: ["30-32 C", "34-35 C", "36-37 C", "39-40 C"], key: "36-37 C" },
+            { q: "Gerakan pemanasan sebelum olahraga bertujuan untuk...", opts: ["Mempercepat lelah", "Mencegah cedera", "Membentuk otot", "Meningkatkan nafsu makan"], key: "Mencegah cedera" },
+            { q: "Pendinginan (cooling down) dilakukan setelah selesai berolahraga.", opts: ["Benar", "Salah", "Tidak perlu"], key: "Benar" },
+            { q: "Menjaga kebersihan lingkungan sekolah adalah tanggung jawab...", opts: ["Petugas kebersihan", "Guru PJOK", "Siswa saja", "Semua warga sekolah"], key: "Semua warga sekolah" }
+        ];
+
+        const questionsB = [
+            "Jelaskan teknik dasar menendang bola menggunakan kaki bagian dalam dalam sepak bola!",
+            "Sebutkan 3 jenis pelanggaran dalam permainan bola voli!",
+            "Apa perbedaan servis panjang dan servis pendek dalam bulu tangkis?",
+            "Jelaskan bahaya penyalahgunaan narkoba bagi kesehatan mental seseorang!",
+            "Tuliskan 4 cara menerapkan pola hidup sehat dalam kehidupan sehari-hari!"
+        ];
+
+        // --- APP STATE ---
+        let currentView = 'exam';
+        let currentUser = null;
+        let tabSwitchCount = 0;
+        let studentName = "";
+        let submissions = [];
+        let selectedSubmissionId = null;
+        let isAuthReady = false;
+        let lastSavedData = null;
+        let autoSaveTimer = null;
+        let isAdminLoading = false;
+        let unsubscribeSubmissions = null;
+
+        // --- AUTH INIT ---
+        const initAuth = async () => {
+            try {
+                await signInAnonymously(auth);
+                onAuthStateChanged(auth, async (user) => {
+                    currentUser = user;
+                    isAuthReady = true;
+                    if (user) await loadExistingDraft();
+                    render();
+                });
+            } catch (error) {
+                console.error(error);
+                window.showWarning("Gagal terhubung ke Firebase.");
+            }
+        };
+        initAuth();
+
+        // --- POP-UP LOGIC ---
+        window.showWarning = (msg, title = "Informasi") => {
+            document.getElementById('warning-title').textContent = title;
+            document.getElementById('warning-message').textContent = msg;
+            document.getElementById('modal-warning').classList.remove('hidden');
+        };
+        window.closeWarning = () => { document.getElementById('modal-warning').classList.add('hidden'); };
+
+        // --- DATA LOGIC ---
+        const loadExistingDraft = async () => {
+            if (!db || !currentUser) return;
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'submissions', currentUser.uid);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    tabSwitchCount = data.tabSwitches || 0;
+                    if (data.finalSubmitted) { currentView = 'finished'; studentName = data.name; }
+                    else { studentName = data.name || ""; lastSavedData = data; }
+                }
+            } catch (e) { }
+        };
+
+        window.triggerAutoSave = () => {
+            if (autoSaveTimer) clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(async () => { await saveDraft(); }, 1000);
+        };
+
+        const saveDraft = async (isFinal = false) => {
+            if (!currentUser || !db || currentView !== 'exam') return;
+            const answersA = [];
+            questionsA.forEach((_, i) => {
+                const sel = document.querySelector(`input[name="qa_${i}"]:checked`);
+                answersA.push(sel ? sel.value : "");
+            });
+            const answersB = [];
+            questionsB.forEach((_, i) => {
+                const val = document.getElementById(`qb_${i}`);
+                answersB.push(val ? val.value.trim() : "");
+            });
+            const data = {
+                name: document.getElementById('input-name')?.value.trim() || studentName,
+                class: document.getElementById('input-class')?.value || "XII A",
+                tabSwitches: tabSwitchCount,
+                answersA,
+                answersB,
+                uid: currentUser.uid,
+                timestamp: new Date().toISOString(),
+                finalSubmitted: isFinal,
+                graded: isFinal ? false : (lastSavedData?.graded || false),
+                essayScore: lastSavedData?.essayScore || 0
+            };
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'submissions', currentUser.uid), data);
+                lastSavedData = data;
+                const indicator = document.getElementById('save-indicator');
+                if (indicator) {
+                    indicator.classList.remove('hidden');
+                    indicator.classList.add('flex', 'animate-save');
+                    setTimeout(() => indicator.classList.remove('animate-save'), 1000);
+                }
+            } catch (e) { }
+        };
+
+        // --- SECURITY LOGIC ---
+        const handleSecurityAlert = () => {
+            if (currentView === 'exam' && isAuthReady) {
+                tabSwitchCount++;
+                saveDraft();
+                window.showWarning(`Halaman ditinggalkan. Pelanggaran: ${tabSwitchCount}x.`, "Keamanan");
+            }
+        };
+        document.addEventListener("visibilitychange", () => { if (document.visibilityState === 'hidden') handleSecurityAlert(); });
+        window.onblur = () => { handleSecurityAlert(); };
+
+        const calculateScore = (answersA = [], essayScore = 0) => {
+            let correctCount = 0;
+            if (answersA.length > 0) {
+                answersA.forEach((ans, i) => { if (ans === questionsA[i]?.key) correctCount++; });
+            }
+            const rawScore = (correctCount * 2) + parseFloat(essayScore); 
+            const finalScore = Math.round((rawScore / 100) * 88 + 10);
+            let grade = finalScore >= 90 ? 'A' : finalScore >= 80 ? 'B' : finalScore >= 70 ? 'C' : 'D';
+            return { score: finalScore, grade, correct: correctCount };
+        };
+
+        const initSubmissionsListener = () => {
+            if (!db || !currentUser) return;
+            if (unsubscribeSubmissions) unsubscribeSubmissions();
+            isAdminLoading = true;
+            render();
+            const q = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
+            unsubscribeSubmissions = onSnapshot(q, (snapshot) => {
+                submissions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                isAdminLoading = false;
+                render();
+            }, (err) => {
+                isAdminLoading = false;
+                render();
+                window.showWarning("Akses ditolak. Periksa Firestore Rules.");
+            });
+        };
+
+        // --- RENDERER ---
+        const render = () => {
+            const root = document.getElementById('app');
+            if (!isAuthReady) return;
+            if (currentView === 'exam') {
+                root.innerHTML = renderExam();
+                if (lastSavedData) {
+                    document.getElementById('input-name').value = lastSavedData.name || "";
+                    document.getElementById('input-class').value = lastSavedData.class || "XII A";
+                    lastSavedData.answersA.forEach((ans, i) => {
+                        if (ans) {
+                            const radio = document.querySelector(`input[name="qa_${i}"][value="${ans}"]`);
+                            if (radio) radio.checked = true;
+                        }
+                    });
+                    lastSavedData.answersB.forEach((ans, i) => {
+                        if (ans) document.getElementById(`qb_${i}`).value = ans;
+                    });
+                }
+            } else if (currentView === 'finished') { root.innerHTML = renderFinished(); }
+            else if (currentView === 'admin_login') { root.innerHTML = renderAdminLogin(); }
+            else if (currentView === 'admin_dashboard') { root.innerHTML = renderAdminDashboard(); }
+        };
+
+        const renderExam = () => `
+            <header class="bg-white border-b border-slate-100 py-6 px-4 mb-4 relative flex justify-between items-center max-w-4xl mx-auto">
+                <div class="flex items-center space-x-2">
+                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQaC7zNuBILaC544879xnoWvGCnxA9Fc83PCg&s" class="h-6 grayscale opacity-50">
+                    <h1 class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-800">SMAS TQ WI ANABANUA</h1>
+                </div>
+                <button onclick="window.setView('admin_login')" class="text-[8px] font-bold text-white hover:text-white">
+  Admin
+</button>
+            </header>
+
+            <main class="max-w-2xl mx-auto px-4 pb-32 text-slate-700">
+                <div class="mb-10 text-center">
+                    <h2 class="text-base font-bold text-slate-900 uppercase tracking-tight">SMAS Tahfidz Al-Quran Wahdah Islamiyah Anabanua</h2>
+                    <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Ujian Sekolah PJOK</p>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-100 rounded-lg p-5 mb-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" id="input-name" oninput="window.triggerAutoSave()" placeholder="Nama Lengkap *" class="p-3 bg-white border border-slate-200 rounded-lg outline-none focus:border-blue-400 text-[13px]">
+                        <select id="input-class" onchange="window.triggerAutoSave()" class="p-3 bg-white border border-slate-200 rounded-lg outline-none text-[13px]">
+                            <option>XII A</option>
+                            <option>XII B</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    ${questionsA.map((q, i) => `
+                        <div class="bg-white border border-slate-100 rounded-lg p-5">
+                            <p class="text-[13px] font-medium text-slate-700 mb-4">${i+1}. ${q.q}</p>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                ${q.opts.map(opt => `
+                                    <label class="flex items-center p-2.5 border border-slate-100 rounded-lg cursor-pointer transition-all hover:bg-slate-50">
+                                        <input type="radio" name="qa_${i}" value="${opt}" onchange="window.triggerAutoSave()" class="w-3.5 h-3.5 text-blue-600">
+                                        <span class="ml-2.5 text-[11px] font-medium text-slate-500">${opt}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="mt-8 space-y-4 mb-16">
+                    ${questionsB.map((q, i) => `
+                        <div class="bg-white border border-slate-100 rounded-lg p-5">
+                            <p class="text-[13px] font-medium text-slate-700 mb-3">${i+1}. ${q}</p>
+                            <textarea id="qb_${i}" oninput="window.triggerAutoSave()" class="w-full p-4 border border-slate-100 rounded-lg outline-none focus:border-blue-400 text-[13px]" rows="3" placeholder="Jawaban..."></textarea>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <button onclick="window.handleFinish()" class="w-full bg-slate-900 text-white font-bold py-4 rounded-lg hover:bg-black transition-all active:scale-[0.99] text-[11px] uppercase tracking-widest">Kirim Jawaban</button>
+            </main>
+
+            <div id="save-indicator" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white px-4 py-2 rounded-full border border-slate-100 hidden items-center space-x-2 z-50">
+                <div class="w-1 h-1 bg-green-500 rounded-full animate-pulse"></div>
+                <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Menyimpan Jawaban...</span>
+            </div>
+        `;
+
+        const renderFinished = () => `
+            <div class="min-h-screen flex items-center justify-center p-6 text-center text-slate-700">
+                <div class="max-w-sm w-full">
+                    <div class="w-12 h-12 bg-slate-900 text-white rounded-xl flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    </div>
+                    <h2 class="text-lg font-bold text-slate-900 mb-2 uppercase">Selesai</h2>
+                    <p class="text-xs text-slate-400 mb-8 font-medium">Terima kasih, <b>${studentName}</b>. Data Anda sudah tersimpan aman.</p>
+                    <button onclick="location.reload()" class="w-full bg-slate-900 text-white py-3 rounded-lg font-bold text-[10px] uppercase tracking-widest hover:bg-black transition-all">Selesai</button>
+                </div>
+            </div>
+        `;
+
+        const renderAdminLogin = () => `
+            <div class="min-h-screen flex items-center justify-center p-6 bg-slate-50">
+                <div class="bg-white border border-slate-200 p-8 rounded-lg w-full max-w-xs text-center">
+                    <h2 class="text-[10px] font-bold text-slate-400 mb-8 uppercase tracking-[0.3em]">Login Monitor</h2>
+                    <input type="password" id="admin-pass" class="w-full p-3 border border-slate-200 rounded-lg mb-4 text-center font-bold outline-none focus:border-blue-400" placeholder="KATA SANDI">
+                    <button onclick="window.doAdminLogin()" class="w-full bg-slate-900 text-white py-3 rounded-lg font-bold text-[10px] tracking-widest uppercase hover:bg-black transition-all">Masuk</button>
+                    <button onclick="window.setView('exam')" class="mt-8 text-[9px] text-slate-300 hover:text-slate-500 font-bold uppercase transition-colors tracking-widest">Batal</button>
+                </div>
+            </div>
+        `;
+
+        const renderAdminDashboard = () => {
+            const sortedSubmissions = [...submissions].sort((a,b) => b.timestamp.localeCompare(a.timestamp));
+            const selectedSubmission = selectedSubmissionId ? submissions.find(s => s.id === selectedSubmissionId) : null;
+            
+            return `
+            <div class="p-6 md:p-12 max-w-4xl mx-auto">
+                <div class="flex justify-between items-center mb-10 pb-6 border-b border-slate-100">
+                    <div>
+                        <h1 class="text-xs font-bold text-slate-400 uppercase tracking-[0.3em]">Monitor Ujian</h1>
+                        <p class="text-base font-bold text-slate-800 mt-1">XII PJOK</p>
+                    </div>
+                    <button onclick="window.setView('exam')" class="bg-white border border-slate-200 px-5 py-2 rounded-lg text-[9px] font-bold hover:bg-slate-50 text-slate-400 tracking-widest uppercase transition-all">Keluar</button>
+                </div>
+
+                <div class="bg-white border border-slate-100 rounded-lg overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 text-slate-400 text-[9px] uppercase tracking-widest font-bold">
+                                <tr>
+                                    <th class="px-6 py-4 tracking-[0.1em]">Siswa</th>
+                                    <th class="px-6 py-4 tracking-[0.1em]">Status</th>
+                                    <th class="px-6 py-4 tracking-[0.1em]">Masalah</th>
+                                    <th class="px-6 py-4 text-right tracking-[0.1em]">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50 text-[12px] font-medium">
+                                ${isAdminLoading ? '<tr><td colspan="4" class="px-8 py-20 text-center text-blue-500 font-bold italic animate-pulse tracking-widest uppercase text-[10px]">Memperbarui data...</td></tr>' : ''}
+                                ${!isAdminLoading && sortedSubmissions.length === 0 ? '<tr><td colspan="4" class="px-8 py-20 text-center text-slate-300 italic uppercase text-[10px] tracking-widest">Belum ada data masuk.</td></tr>' : ''}
+                                ${sortedSubmissions.map(s => {
+                                    const res = calculateScore(s.answersA, s.essayScore || 0);
+                                    return `
+                                    <tr class="hover:bg-slate-50/50">
+                                        <td class="px-6 py-5">
+                                            <p class="font-bold text-slate-800 text-[13px]">${s.name || '<span class="text-slate-200">Anonim</span>'}</p>
+                                            <p class="text-[9px] text-slate-300 font-bold uppercase tracking-widest">${s.class}</p>
+                                        </td>
+                                        <td class="px-6 py-5">
+                                            <span class="text-[8px] font-bold px-2 py-0.5 rounded border ${s.finalSubmitted ? 'bg-green-50 text-green-600 border-green-200' : 'bg-blue-50 text-blue-600 border-blue-200'} uppercase tracking-widest">
+                                                ${s.finalSubmitted ? 'Done' : 'Live'}
+                                            </span>
+                                            <span class="text-[10px] font-bold text-slate-400 ml-2">S: ${res.score}</span>
+                                        </td>
+                                        <td class="px-6 py-5">
+                                            <span class="font-bold text-[10px] ${s.tabSwitches > 0 ? 'text-red-400' : 'text-slate-200'} uppercase tracking-widest">${s.tabSwitches}x Tab</span>
+                                        </td>
+                                        <td class="px-6 py-5 text-right">
+                                            <button onclick="window.inspectSubmission('${s.id}')" class="text-slate-400 hover:text-slate-900 px-3 py-1 rounded text-[9px] font-bold tracking-widest uppercase border border-slate-100 hover:border-slate-300 transition-all">PERIKSA</button>
+                                        </td>
+                                    </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                ${selectedSubmission ? renderInspector(selectedSubmission) : ''}
+            </div>
+            `;
+        };
+
+        const renderInspector = (submission) => {
+            const res = calculateScore(submission.answersA, submission.essayScore || 0);
+            return `
+            <div class="fixed inset-0 bg-white z-[60] overflow-y-auto p-4 md:p-12 custom-scrollbar">
+                <div class="max-w-5xl mx-auto">
+                    <div class="flex justify-between items-start mb-12 pb-8 border-b border-slate-100">
+                        <div>
+                            <div class="flex items-center space-x-2 text-[9px] font-bold text-blue-500 uppercase tracking-widest mb-2">
+                                <span>Laporan Hasil</span>
+                                <span class="w-1 h-1 bg-slate-200 rounded-full"></span>
+                                <span>${submission.class}</span>
+                            </div>
+                            <h2 class="text-2xl font-bold text-slate-800 uppercase tracking-tight leading-none">${submission.name || 'Peserta'}</h2>
+                            <div class="flex gap-4 mt-4">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">PG: ${res.correct}/40 Benar</span>
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Keluar Tab: ${submission.tabSwitches}x</span>
+                                <span class="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Skor Akhir: ${res.score} (${res.grade})</span>
+                            </div>
+                        </div>
+                        <button onclick="window.closeInspector()" class="bg-slate-50 text-slate-400 hover:text-slate-900 p-3 rounded-lg border border-slate-100 transition-all active:scale-90">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <div class="space-y-16">
+                        <div>
+                            <h3 class="text-[10px] font-bold text-slate-300 uppercase tracking-[0.3em] mb-8 border-l-2 border-slate-100 pl-4">I. Pilihan Ganda</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                ${submission.answersA.map((ans, i) => {
+                                    const isCorrect = ans === questionsA[i]?.key;
+                                    return `
+                                        <div class="p-4 border border-slate-50 rounded-lg bg-slate-50/20">
+                                            <p class="text-[11px] font-bold text-slate-700 leading-relaxed mb-3">${i+1}. ${questionsA[i]?.q || '?'}</p>
+                                            <div class="text-[9px] font-bold uppercase tracking-widest space-y-1">
+                                                <p class="${isCorrect ? 'text-green-500' : 'text-red-400'}">Siswa: ${ans || '-'}</p>
+                                                ${!isCorrect ? `<p class="text-slate-300 font-medium lowercase italic">Kunci: ${questionsA[i]?.key}</p>` : ''}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-[10px] font-bold text-slate-300 uppercase tracking-[0.3em] mb-8 border-l-2 border-slate-100 pl-4">II. Essay</h3>
+                            <div class="space-y-6">
+                                ${questionsB.map((q, i) => `
+                                    <div class="p-6 border border-slate-100 rounded-lg">
+                                        <p class="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-2">Soal ${i+1}</p>
+                                        <p class="text-[13px] font-semibold text-slate-800 mb-5 leading-relaxed">${q}</p>
+                                        <div class="text-[13px] leading-relaxed text-slate-600 bg-slate-50 p-6 rounded-lg border border-slate-200 italic font-medium">
+                                            ${submission.answersB[i] || 'Peserta tidak menjawab.'}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <div class="bg-white border-2 border-blue-50 p-10 rounded-2xl text-center mb-40 max-w-xs mx-auto shadow-sm">
+                            <label class="text-[10px] font-bold text-blue-500 uppercase tracking-[0.4em] block mb-6 leading-relaxed">Nilai Essay Siswa<br><span class="text-slate-300">(Range: 0 - 20)</span></label>
+                            <input type="number" id="essay-score-input" value="${submission.essayScore || 0}" min="0" max="20" class="w-full text-center text-6xl font-bold mb-10 outline-none focus:text-blue-600 border-b border-slate-100 transition-all text-slate-800">
+                            <button onclick="window.saveGrading('${submission.id}')" class="w-full bg-blue-600 text-white font-bold py-4 rounded-lg hover:bg-blue-700 transition-all text-[10px] tracking-[0.3em] uppercase">Simpan Nilai</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `;
+        };
+
+        // --- ACTIONS ---
+        window.setView = (view) => {
+            if (!isAuthReady) { window.showWarning("Menghubungkan..."); return; }
+            currentView = view;
+            if (view === 'admin_dashboard') initSubmissionsListener();
+            else { if (unsubscribeSubmissions) unsubscribeSubmissions(); render(); }
+        };
+
+        window.doAdminLogin = () => {
+            if (document.getElementById('admin-pass').value === 'jawabanpjok') window.setView('admin_dashboard');
+            else window.showWarning("Sandi salah.");
+        };
+
+        window.handleFinish = async () => {
+            if (!isAuthReady) return;
+            studentName = document.getElementById('input-name').value.trim();
+            if (!studentName) return window.showWarning("Isi Nama Lengkap.");
+            for (let i = 0; i < questionsA.length; i++) {
+                if (!document.querySelector(`input[name="qa_${i}"]:checked`)) return window.showWarning(`PG No. ${i+1} belum dijawab.`);
+            }
+            for (let i = 0; i < questionsB.length; i++) {
+                if (!document.getElementById(`qb_${i}`).value.trim()) return window.showWarning(`Essay No. ${i+1} belum dijawab.`);
+            }
+            try { await saveDraft(true); currentView = 'finished'; render(); }
+            catch (err) { window.showWarning("Gagal kirim."); }
+        };
+
+        window.inspectSubmission = (id) => { selectedSubmissionId = id; render(); };
+        window.closeInspector = () => { selectedSubmissionId = null; render(); };
+        
+        window.saveGrading = async (id) => {
+            const score = document.getElementById('essay-score-input').value;
+            if (score < 0 || score > 20) return window.showWarning("Skor 0-20.");
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'submissions', id), {
+                    essayScore: parseFloat(score), graded: true
+                });
+                window.showWarning("Nilai disimpan.", "Sukses");
+            } catch (err) { window.showWarning("Gagal simpan."); }
+        };
+
+        render();
+    </script>
+</body>
+</html>
